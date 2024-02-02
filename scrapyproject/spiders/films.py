@@ -13,14 +13,14 @@ class FilmsSpider(scrapy.Spider):
     def parse(self, response):
         urls = response.css('[id=mw-pages]').css('ul li a')
 
-        for u in urls[:10]:
+        for u in urls:
             film_link = 'https://ru.wikipedia.org' + u.attrib['href']
             yield response.follow(film_link, callback=self.parse_film_page)
 
-        # next_page = response.css('[id=mw-pages]').xpath("//a[text()='Следующая страница']")
-        # if next_page is not None:
-        #     next_page_url = 'https://ru.wikipedia.org' + next_page.attrib['href']
-        #     yield response.follow(next_page_url, callback=self.parse)
+        next_page = response.css('[id=mw-pages]').xpath("//a[text()='Следующая страница']")
+        if next_page is not None:
+            next_page_url = 'https://ru.wikipedia.org' + next_page.attrib['href']
+            yield response.follow(next_page_url, callback=self.parse)
 
     def parse_film_page(self, response):
         infobox = response.xpath('//*[contains(@class, "infobox")]//tr')
