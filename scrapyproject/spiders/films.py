@@ -2,7 +2,7 @@ import scrapy
 import re
 import unicodedata
 
-params = {"жанр":"genre", "режисс":"director", "стран": "country", "год": "year", "imdb": "imdb"}
+params = {"жанр": "genre", "режисс":"director", "стран": "country", "год": "year", "imdb": "imdb"}
 
 class FilmsSpider(scrapy.Spider):
     name = "films"
@@ -27,8 +27,7 @@ class FilmsSpider(scrapy.Spider):
         for row in infobox:
             if row.xpath('th'):
                 item = row.xpath('th//text()').extract()
-                item = [_.strip() for _ in item]
-                item = ' '.join(item)
+                item = ' '.join([_.strip() for _ in item])
                 item = item.replace('\n', '')
                 item = unicodedata.normalize("NFKD", item)
                 item = re.sub(r' +', ' ', item)
@@ -41,25 +40,30 @@ class FilmsSpider(scrapy.Spider):
                             value = []
                             for li in row.xpath('td/div/ul/li'):
                                 value.append(''.join(li.xpath('.//text()').extract()))
-                            value = [_.strip() for _ in value if _.strip() and _.replace('\n', '')]
+                            value = [_.strip() for _ in value]
                             value = ', '.join(value)
                         else:
                             value = row.xpath('td//text()').extract()
-                            value = [_.strip() for _ in value if _.strip() and _.replace('\n', '')]
-
-                        film[item] = clean_value(value)
+                            value = [_.strip() for _ in value]
+                            value = ' '.join(value)
+                        
+                        film[item] = clean_value(value, pattern)
         yield film
 
 
 
-def clean_value(value):
-    value = ' '.join(value)
+def clean_value(value, pattern):
     value = value.replace('\n', '')
     value = unicodedata.normalize("NFKD", value)
     value = re.sub(r' , ', ', ', value)
     value = re.sub(r' \( ', ' (', value)
     value = re.sub(r' \) ', ') ', value)
     value = re.sub(r' \)', ') ', value)
-    value = re.sub(r'\[\d.*\]', ' ', value)
+    value = re.sub(r'\[[^\]]*\]', '', value)
     value = re.sub(r' +', ' ', value)
+    if pattern=='год':
+        try_year = re.findall(r'\d{4}', value)
+        value = try_year[0] if try_year else value
+    elif pattern == 'жанр':
+        value = value.lower()
     return value.strip()
