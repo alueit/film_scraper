@@ -2,11 +2,12 @@ import scrapy
 import re
 import unicodedata
 
-params = {"жанр": "genre", "режисс":"director", "стран": "country", "год": "year", "imdb": "imdb"}
+#защита от множественного числа и потери ё
+params = {"жанр": "genre", "режисс": "director", "стран": "country", "год": "year", "imdb": "imdb"}
 
 class FilmsSpider(scrapy.Spider):
     name = "films"
-    allowed_domains = ['ru.wikipedia.org']
+    allowed_domains = ['ru.wikipedia.org', 'imdb.com']
     start_urls = ['https://ru.wikipedia.org/wiki/Категория:Фильмы_по_алфавиту']
 
     def parse(self, response):
@@ -24,6 +25,7 @@ class FilmsSpider(scrapy.Spider):
     def parse_film_page(self, response):
         infobox = response.xpath('//*[contains(@class, "infobox")]//tr')
         film = {'title': response.css("span.mw-page-title-main::text").get()}
+        imdb_link = ''
         for row in infobox:
             if row.xpath('th'):
                 item = row.xpath('th//text()').extract()
@@ -36,21 +38,33 @@ class FilmsSpider(scrapy.Spider):
                     if pattern in item.lower():
                         item = params[pattern]
 
-                        if row.xpath('td/div/ul/li'):
+                        if item == 'imdb':
+                            imdb_link = row.xpath('td//a').attrib['href']
+                            break
+                        elif row.xpath('td/div/ul/li'):
                             value = []
                             for li in row.xpath('td/div/ul/li'):
                                 value.append(''.join(li.xpath('.//text()').extract()))
                             value = [_.strip() for _ in value]
                             value = ', '.join(value)
+                    
+
                         else:
                             value = row.xpath('td//text()').extract()
                             value = [_.strip() for _ in value]
                             value = ' '.join(value)
                         
                         film[item] = clean_value(value, pattern)
-        yield film
+        if not imdb_link:
+            yield {**film, "imdb": "not found"}
+        else:
+            yield response.follow(imdb_link, callback=self.parse_imdb, cb_kwargs=film)
 
-
+    def parse_imdb(self, response, **cb_kwargs):
+        title = response.xpath('//meta[@property="og:title"]/@content').get()
+        try_score = re.findall(r"\d\.\d", title)
+        score = try_score[0] if try_score else 'not found'
+        yield {**response.cb_kwargs, "imdb": score}
 
 def clean_value(value, pattern):
     value = value.replace('\n', '')
