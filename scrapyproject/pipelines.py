@@ -7,8 +7,7 @@
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 
-table = []
 
 class ScrapyprojectPipeline:
     def process_item(self, item, spider):
-        table.append(item)
+        return item

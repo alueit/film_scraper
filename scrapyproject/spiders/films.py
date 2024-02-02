@@ -3,18 +3,21 @@ import scrapy
 
 class FilmsSpider(scrapy.Spider):
     name = "films"
-    allowed_domains = ['en.wikipedia.org']
-    start_urls = ['https://ru.wikipedia.org/wiki/%D0%9A%D0%B0%D1%82%D0%B5%D0%B3%D0%BE%D1%80%D0%B8%D1%8F:%D0%A4%D0%B8%D0%BB%D1%8C%D0%BC%D1%8B_%D0%BF%D0%BE_%D0%B0%D0%BB%D1%84%D0%B0%D0%B2%D0%B8%D1%82%D1%83']
+    allowed_domains = ['ru.wikipedia.org']
+    start_urls = ['https://ru.wikipedia.org/wiki/Категория:Фильмы_по_алфавиту']
 
     def parse(self, response):
-        countries = response.xpath('//table//b//@title').extract()
+        urls = response.css('[id=mw-pages]').css('ul li a')
 
-        for country in countries:
-
-            country_url = response.xpath('//table//b').extract()
-
-            yield {'countries': country}
-
+        for u in urls:
+            yield {
+                'url': 'https://ru.wikipedia.org' + u.attrib['href'],
+                'title': u.attrib['title'],
+            }
+        next_page = response.css('[id=mw-pages]').xpath("//a[text()='Следующая страница']")
+        if next_page is not None:
+            next_page_url = 'https://ru.wikipedia.org' + next_page.attrib['href']
+            yield response.follow(next_page_url, callback=self.parse)
     # def start_requests(self):
     #     URL = self.start_urls[0]
     #     yield scrapy.Request(url=URL, callback=self.response_parser)
